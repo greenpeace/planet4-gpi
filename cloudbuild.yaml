@@ -1,0 +1,44 @@
+steps:
+- id: 'cache-app'
+  name: '${_BUILD_NAMESPACE}/cloud-builders/docker'
+  args: ['pull', 'gcr.io/planet-4-151612/wordpress:latest']
+- id: 'cache-openresty'
+  waitFor: ['-']
+  name: '${_BUILD_NAMESPACE}/cloud-builders/docker'
+  args: ['pull', 'gcr.io/planet-4-151612/openresty:latest']
+- id: 'copy-app'
+  waitFor: ['-']
+  name: '${_BUILD_NAMESPACE}/cloud-builders/docker'
+  entrypoint: 'rsync'
+  args: ['-a', './planet4-base/public/', './docker/p4-gpi-app/www']
+- id: 'copy-openresty'
+  waitFor: ['-']
+  name: 'gcr.io/planet-4-151612/p4-cloudbuilder:develop'
+  entrypoint: 'rsync'
+  args: ['-a', './planet4-base/public/', './docker/p4-gpi-openresty/www']
+- id: 'p4-gpi-app'
+  waitFor: ['cache-app','copy-app']
+  name: '${_BUILD_NAMESPACE}/cloud-builders/docker'
+  args:
+    - 'build'
+    - '--cache-from'
+    - 'gcr.io/planet-4-151612/wordpress:latest'
+    - '--tag=${_BUILD_NAMESPACE}/${_GOOGLE_PROJECT_ID}/p4-gpi-app:${_BUILD_TAG}'
+    - '--tag=${_BUILD_NAMESPACE}/${_GOOGLE_PROJECT_ID}/p4-gpi-app:latest'
+    - './docker/p4-gpi-app'
+- id: 'p4-gpi-openresty'
+  waitFor: ['cache-openresty','copy-openresty']
+  name: '${_BUILD_NAMESPACE}/cloud-builders/docker'
+  args:
+    - 'build'
+    - '--cache-from'
+    - 'gcr.io/planet-4-151612/openresty:latest'
+    - '--tag=${_BUILD_NAMESPACE}/${_GOOGLE_PROJECT_ID}/p4-gpi-openresty:${_BUILD_TAG}'
+    - '--tag=${_BUILD_NAMESPACE}/${_GOOGLE_PROJECT_ID}/p4-gpi-openresty:latest'
+    - './docker/p4-gpi-openresty'
+
+images:
+  - ${_BUILD_NAMESPACE}/${_GOOGLE_PROJECT_ID}/p4-gpi-app:${_BUILD_TAG}
+  - ${_BUILD_NAMESPACE}/${_GOOGLE_PROJECT_ID}/p4-gpi-app:latest
+  - ${_BUILD_NAMESPACE}/${_GOOGLE_PROJECT_ID}/p4-gpi-openresty:${_BUILD_TAG}
+  - ${_BUILD_NAMESPACE}/${_GOOGLE_PROJECT_ID}/p4-gpi-openresty:latest
