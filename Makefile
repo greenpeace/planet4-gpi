@@ -56,6 +56,7 @@ src:
 		popd
 
 build:
+		gcloud config set project $(GOOGLE_PROJECT_ID)
 		gcloud container builds submit . \
 		  --substitutions=_BUILD_NAMESPACE=$(BUILD_NAMESPACE),_BUILD_TAG=$(BUILD_TAG),_GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID) \
 		  --config cloudbuild.yaml
