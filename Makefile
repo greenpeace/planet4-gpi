@@ -8,7 +8,7 @@ MERGE_PATH 				?= app/planet4-gpi/production/composer.json
 BUILD_NAMESPACE ?= gcr.io
 
 # Tag to append to container.
-# If not set, will default to git tag pointing to current commit
+# If not set, defaults to git tag pointing to current commit
 BUILD_TAG ?= $(shell git tag -l --points-at HEAD)
 # If the current commit does not have a tag, or the variable is empty
 # Defaults to the current git branch name
@@ -21,12 +21,12 @@ COMPOSER_EXEC ?= composer --profile -vv
 
 ################################################################################
 
-.PHONY: all build dep src
+.PHONY: test dep src build pull
 
-all: test dep src build
+all: clean test dep src build pull
 
 test:
-	  echo "TAG: $(BUILD_TAG)"
+	  @echo "TAG: $(BUILD_TAG)"
 
 clean:
 	  rm -fr planet4-base
@@ -60,3 +60,7 @@ build:
 		gcloud container builds submit . \
 		  --substitutions=_BUILD_NAMESPACE=$(BUILD_NAMESPACE),_BUILD_TAG=$(BUILD_TAG),_GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID) \
 		  --config cloudbuild.yaml
+
+pull:
+	  docker pull gcr.io/$(GOOGLE_PROJECT_ID)/p4-gpi-app:${BUILD_TAG}
+	  docker pull gcr.io/$(GOOGLE_PROJECT_ID)/p4-gpi-openresty:${BUILD_TAG}
