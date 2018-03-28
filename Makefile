@@ -1,7 +1,8 @@
 SHELL := /bin/bash
 
 GOOGLE_PROJECT_ID ?= planet4-gpi
-MERGE_PATH 				?= app/planet4-gpi/production/composer.json
+ENVIRONMENT				?= production
+MERGE_PATH 				?= ../env/$(ENVIRONMENT)/composer.json
 # GS_BUCKET 				:= p4-src-public
 # GS_PATH 					?= production
 
@@ -21,15 +22,16 @@ COMPOSER_EXEC ?= composer --profile -vv
 
 ################################################################################
 
-.PHONY: test dep src build pull
+.PHONY: test dep bake src build pull
 
-all: clean test dep src build pull
+all: clean test dep build pull
 
 test:
 	  @echo "TAG: $(BUILD_TAG)"
 
 clean:
 	  rm -fr planet4-base
+		rm -fr www
 
 update:
 	  git submodule update --remote
@@ -42,18 +44,11 @@ dep: ### Update git submodules
 		$(COMPOSER_EXEC) update && \
 		popd
 
+bake: src
 src:
-		pushd planet4-base && \
-		$(COMPOSER_EXEC) run-script reset:public && \
-		$(COMPOSER_EXEC) run-script download:wordpress && \
-		$(COMPOSER_EXEC) run-script copy:health-check && \
-		$(COMPOSER_EXEC) run-script reset:themes && \
-		$(COMPOSER_EXEC) run-script reset:plugins && \
-		$(COMPOSER_EXEC) run-script copy:themes && \
-		$(COMPOSER_EXEC) run-script copy:assets && \
-		$(COMPOSER_EXEC) run-script copy:plugins && \
-		$(COMPOSER_EXEC) run-script core:style && \
-		popd
+		bin/bake.sh gcr.io/planet-4-151612/p4-gpi-app-dev:develop planet4-base
+		rsync -a --delete planet4-base/public/ docker/p4-gpi-app/www
+		rsync -a --delete planet4-base/public/ docker/p4-gpi-openresty/www
 
 build:
 		gcloud config set project $(GOOGLE_PROJECT_ID)
@@ -62,5 +57,6 @@ build:
 		  --config cloudbuild.yaml
 
 pull:
-	  docker pull gcr.io/$(GOOGLE_PROJECT_ID)/p4-gpi-app:${BUILD_TAG}
-	  docker pull gcr.io/$(GOOGLE_PROJECT_ID)/p4-gpi-openresty:${BUILD_TAG}
+	  docker pull gcr.io/$(GOOGLE_PROJECT_ID)/p4-gpi-app:${BUILD_TAG} &
+	  docker pull gcr.io/$(GOOGLE_PROJECT_ID)/p4-gpi-openresty:${BUILD_TAG} &
+		wait

@@ -11,4 +11,4 @@
 # from your .gitignore file, remove the corresponding line
 # below:
 .git
-.gitignore
+planet4-base

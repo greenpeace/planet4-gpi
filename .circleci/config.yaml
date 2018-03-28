@@ -1,0 +1,111 @@
+defaults: &defaults
+  environment:
+    GOOGLE_PROJECT_ID: planet-4-151612
+    BUILD_FLAGS: -r
+  docker:
+    - image: gcr.io/planet-4-151612/circleci-base:0.3.4
+  working_directory:  /home/circleci/app
+
+version: 2
+
+jobs:
+  build:
+    <<: *defaults
+    steps:
+      - checkout
+
+      - setup_remote_docker
+
+      - run:
+          name: Determine branch from tag
+          command: |
+            mkdir -p /tmp/workspace/var
+            if [[ -z "${CIRCLE_BRANCH}" ]] && [[ "${CIRCLE_TAG}" ]]
+            then
+              # Find which remote branch contains the current commit
+              git remote update
+              CIRCLE_BRANCH=$(git branch -r --contains ${CIRCLE_SHA1} | grep -v 'HEAD' | awk '{split($1,a,"/"); print a[2]}')
+              # Checkout that branch / tag
+              git checkout ${CIRCLE_BRANCH}
+              if [[ "$(git rev-parse HEAD)" = "${CIRCLE_SHA1}" ]]
+              then
+                echo "${CIRCLE_BRANCH}" > /tmp/workspace/var/circle-branch-name
+                export CIRCLE_BRANCH
+              else
+                >&2 echo "Found the wrong commit!"
+                >&2 echo "Wanted: ${CIRCLE_SHA1}"
+                >&2 echo "Found:  $(git rev-parse HEAD)"
+                >&2 echo "Could not reliably determine branch for tag ${CIRCLE_TAG}"
+                exit 1
+              fi
+            fi
+
+      - run:
+          name: Configure gcloud
+          command: |
+            ${HOME}/scripts/activate-gcloud-account.sh
+
+      - run:
+          name: Build application
+          command: |
+            make build
+
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - var
+
+  test:
+    <<: *defaults
+    steps:
+      - run:
+          name: Placeholder
+          command: |
+            echo "Branch: ${CIRCLE_BRANCH}"
+            echo "Build:  ${CIRCLE_BUILD_NUM}"
+            echo "Tag:    ${CIRCLE_TAG}"
+            echo "No tests implemented yet"
+
+  deploy:
+    <<: *defaults
+    environment:
+      GOOGLE_PROJECT_ID: planet-4-151612
+      BUILD_FLAGS: -r
+      BUILD_ENVIRONMENT: production
+    steps:
+      - checkout
+
+      - setup_remote_docker
+
+      - run:
+          name: Configure gcloud
+          command: |
+            ${HOME}/scripts/activate-gcloud-account.sh
+
+      - run:
+          name: Build production
+          command: |
+            make build
+
+
+workflows:
+  version: 2
+  build-test-and-deploy:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /.*/
+      - test:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /.*/
+      # Only run deploy job for tagged releases, any branch
+      - deploy:
+          requires:
+            - test
+          filters:
+            tags:
+              only: /.*/

@@ -1,8 +1,0 @@
-# Application config
-APP_ENV="production"
-APP_HOSTNAME="production.docker.p4.greenpeace.org"
-IMAGE_FROM_APP="gcr.io/planet-4-151612/p4-gpi-app-dev:feature-bake"
-PAGESPEED_ENABLED="false"
-WP_SITE_URL="production.docker.p4.greenpeace.org/international"
-WP_SITE_HOME="production.docker.p4.greenpeace.org/international"
-WP_TITLE="Greenpeace International Development Site"

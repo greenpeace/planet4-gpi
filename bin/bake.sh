@@ -2,12 +2,10 @@
 set -eu
 
 function usage() {
-  echo "Usage: $(basename "$0") [-e <environment>] SOURCE_IMAGE [OUTPUT_DIR]
+  echo "Usage: $(basename "$0") SOURCE_IMAGE [OUTPUT_DIR]
 
-Performs initial composer install in container and exports the resultant code
+Performs initial composer install in container and exports the resultant site
 
-Options:
-  -e    Environment to build (defaults to 'develop')
 "
 }
 
@@ -22,13 +20,12 @@ do # resolve $source until the file is no longer a symlink
 done
 BUILD_DIR="$( cd -P "$( dirname "$source" )/.." && pwd )"
 
-. "${BUILD_DIR}/bin/env.sh"
+# . "${BUILD_DIR}/bin/env.sh"
 
 OPTIONS=':c:e:lprv'
 while getopts $OPTIONS option
 do
     case $option in
-        e  )    BUILD_ENVIRONMENT=$OPTARG;;
         *  )    >&2 echo "Unknown parameter"
                 usage
                 exit 1;;
@@ -43,7 +40,7 @@ then
   exit 1
 fi
 
-image_name=$1
+image=$1
 
 if [[ -z "${2:-}" ]]
 then
@@ -56,21 +53,30 @@ then
   trap finish EXIT
   TMPDIR=$(mktemp -d "${TMPDIR:-/tmp/}$(basename 0).XXXXXXXXXXXX")
 
-  output_dir="$TMPDIR/www"
+  output_dir="$TMPDIR"
 else
-  [[ ! -d "$2" ]] && mkdir -p "$2"
+  mkdir -p "$2"
   output_dir="$2"
 fi
 
 echo "Image:  $1"
 echo "Output: $output_dir"
+echo ""
 
-SOURCE_BRANCH_SANITIZED=${SOURCE_BRANCH//[^[:alnum:]_]/-}
+# SOURCE_BRANCH_SANITIZED=${SOURCE_BRANCH//[^[:alnum:]_]/-}
 
-docker run -e "WP_BAKE=true" "gcr.io/${GOOGLE_PROJECT_ID}/${image_name}:${SOURCE_BRANCH_SANITIZED}" || true
+docker run -e "WP_BAKE=true" "${image}" || true
 
+echo ""
 # docker commit docker "$(docker ps -alq)" gcr.io/planet-4-151612/p4-gpi-app:latest
 # docker tag gcr.io/planet-4-151612/p4-gpi-app:latest "gcr.io/planet-4-151612/p4-gpi-app:${APP_VERSION}"
+
 container="$(docker ps -alq)"
-docker cp "$container:/app/source/public" "$output_dir"
+docker cp "$container:/app/source/public/" "$output_dir"
+
 docker rm "$container"
+
+echo "Files available at: $output_dir/public"
+
+# gsutil cp $output_dir gs://${GS_BUCKET}/planet4-gpi
+ls "$output_dir/public"

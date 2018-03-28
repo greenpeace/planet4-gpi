@@ -1,3 +1,0 @@
-# Application config
-APP_ENV="production"
-IMAGE_FROM_OPENRESTY="gcr.io/planet-4-151612/p4-gpi-openresty-dev:feature-bake"
