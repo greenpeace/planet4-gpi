@@ -1,9 +1,10 @@
 defaults: &defaults
   environment:
     GOOGLE_PROJECT_ID: planet-4-151612
+    GKE_CLUSTER_NAME: p4-development
     BUILD_FLAGS: -r
   docker:
-    - image: gcr.io/planet-4-151612/circleci-base:0.3.4
+    - image: gcr.io/planet-4-151612/circleci-base:0.3.7
   working_directory:  /home/circleci/app
 
 version: 2
@@ -46,36 +47,76 @@ jobs:
             ${HOME}/scripts/activate-gcloud-account.sh
 
       - run:
-          name: Build application
+          name: Clean
+          command: |
+            make clean
+
+      - run:
+          name: Update
+          command: |
+            make update
+
+      - run:
+          name: Test
+          command: |
+            make test
+
+      - run:
+          name: Dependencies
+          command: |
+            make configure
+
+      - run:
+          name: Build develop containers
+          command: |
+            echo "@todo - rebuild env/develop containers"
+
+      - run:
+          name: Build containers
+          command: |
+            make build-dev
+
+      - run:
+          name: Bake source files
+          command: |
+            make bake
+
+      - run:
+          name: Build production containers
           command: |
             make build
-
+            
       - persist_to_workspace:
           root: /tmp/workspace
           paths:
             - var
 
-  test:
-    <<: *defaults
-    steps:
-      - run:
-          name: Placeholder
-          command: |
-            echo "Branch: ${CIRCLE_BRANCH}"
-            echo "Build:  ${CIRCLE_BUILD_NUM}"
-            echo "Tag:    ${CIRCLE_TAG}"
-            echo "No tests implemented yet"
+  # test:
+  #   <<: *defaults
+  #   steps:
+  #     - run:
+  #         name: Placeholder
+  #         command: |
+  #           echo "Branch: ${CIRCLE_BRANCH}"
+  #           echo "Build:  ${CIRCLE_BUILD_NUM}"
+  #           echo "Tag:    ${CIRCLE_TAG}"
+  #           echo "No tests implemented yet"
 
-  deploy:
+  deploy-develop:
     <<: *defaults
     environment:
-      GOOGLE_PROJECT_ID: planet-4-151612
-      BUILD_FLAGS: -r
-      BUILD_ENVIRONMENT: production
+      NAMESPACE=develop
+      HELM_HOSTNAME=k8s.p4.greenpeace.org
+      HELM_HOSTPATH=international
+      WP_STATELESS_BUCKET=p4-develop-content-k8s
+      NEWRELIC_APPNAME=Planet 4 GPI K8s
     steps:
       - checkout
 
       - setup_remote_docker
+
+      - attach_workspace:
+          at: /tmp/workspace
 
       - run:
           name: Configure gcloud
@@ -83,10 +124,58 @@ jobs:
             ${HOME}/scripts/activate-gcloud-account.sh
 
       - run:
-          name: Build production
+          name: Connect to cluster
           command: |
-            make build
+            gcloud container clusters get-credentials ${GKE_CLUSTER_NAME} --zone us-central1-a --project ${GOOGLE_PROJECT_ID}
+            kubectl config set-context ${NAMESPACE} --namespace=${NAMESPACE}
+            kubectl config use-context ${NAMESPACE}
 
+      - run:
+          name: Connect to the P4 Helm repository
+          command: |
+            helm repo add https://p4-helm-charts.storageapis.google.com/ https://p4-helm-charts.storageapis.google.com/
+
+      - run:
+          name: Deploy release
+          command: |
+            set -u
+            helm upgrade --install "${HELM_RELEASE}" \
+              --set dbDatabase="${WP_DB_NAME}" \
+              --set dbPassword="${WP_DB_PASSWORD}" \
+              --set dbUsername="${WP_DB_USERNAME}" \
+              --set exim.image.pullPolicy="always" \
+              --set exim.image.tag="develop" \
+              --set hostname="${HELM_HOSTNAME}" \
+              --set newrelic.appname="${NEWRELIC_APPNAME}" \
+              --set openresty.image.pullPolicy="always" \
+              --set openresty.image.tag="develop" \
+              --set php.image.pullPolicy="always" \
+              --set php.image.tag="develop" \
+              --set sqlproxy.serviceAccountKey="${SQLPROXY_KEY}" \
+              --set wp.authKey="${WP_AUTH_KEY}" \
+              --set wp.authSalt="${WP_AUTH_SALT}" \
+              --set wp.loggedInKey="${WP_LOGGED_IN_KEY}" \
+              --set wp.loggedInSalt="${WP_LOGGED_IN_SALT}" \
+              --set wp.nonceKey="${WP_NONCE_KEY}" \
+              --set wp.nonceSalt="${WP_NONCE_SALT}" \
+              --set wp.secureAuthKey="${WP_SECURE_AUTH_KEY}" \
+              --set wp.secureAuthSalt="${WP_SECURE_AUTH_SALT}" \
+              --set wp.siteHome="https://${HELM_HOSTNAME}/${HELM_HOSTPATH}" \
+              --set wp.stateless.bucket="${WP_STATELESS_BUCKET}" \
+              --set wp.stateless.serviceAccountKey="${WP_STATELESS_KEY}" \
+              p4-helm-charts/wordpress
+      - run:
+          name: Clear redis cache
+          command: |
+            echo "@todo - redis-cli flushdb"
+
+  deploy-production:
+    <<: *defaults
+    steps:
+      - run:
+        name: "Deploy to production"
+        command: |
+          echo "@todo - duplicate develop deploy process"
 
 workflows:
   version: 2
@@ -96,16 +185,23 @@ workflows:
           filters:
             tags:
               only: /.*/
-      - test:
-          requires:
-            - build
+      # - test:
+      #     requires:
+      #       - build
+      #     filters:
+      #       tags:
+      #         only: /.*/
+      - deploy-develop:
           filters:
+            branches:
+              only: develop
             tags:
               only: /.*/
-      # Only run deploy job for tagged releases, any branch
-      - deploy:
-          requires:
-            - test
+      - deploy-production:
+          # requires:
+            # - test
           filters:
+            branches:
+              only: master
             tags:
-              only: /.*/
+              only: /v.*/
