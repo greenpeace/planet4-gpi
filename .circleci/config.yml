@@ -194,6 +194,8 @@ workflows:
       #         only: /.*/
       - deploy-develop:
           context: org-global
+          requires:
+            - build
           filters:
             branches:
               only: develop
@@ -201,8 +203,8 @@ workflows:
               only: /.*/
       - deploy-production:
           context: org-global
-          # requires:
-            # - test
+          requires:
+            - build
           filters:
             branches:
               only: master
