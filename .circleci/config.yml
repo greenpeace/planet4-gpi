@@ -52,11 +52,6 @@ jobs:
             make clean
 
       - run:
-          name: Update
-          command: |
-            make update
-
-      - run:
           name: Test
           command: |
             make test
@@ -66,13 +61,9 @@ jobs:
           command: |
             make configure
 
-      - run:
-          name: Build develop containers
-          command: |
-            echo "@todo - rebuild env/develop containers"
 
       - run:
-          name: Build containers
+          name: Build develop containers
           command: |
             make build-dev
 
