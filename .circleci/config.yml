@@ -6,7 +6,6 @@ defaults: &defaults
   docker:
     - image: gcr.io/planet-4-151612/circleci-base:0.3.7
   working_directory:  /home/circleci/app
-  context: org-global
 
 version: 2
 
@@ -183,6 +182,7 @@ workflows:
   build-test-and-deploy:
     jobs:
       - build:
+          context: org-global
           filters:
             tags:
               only: /.*/
@@ -193,12 +193,14 @@ workflows:
       #       tags:
       #         only: /.*/
       - deploy-develop:
+          context: org-global
           filters:
             branches:
               only: develop
             tags:
               only: /.*/
       - deploy-production:
+          context: org-global
           # requires:
             # - test
           filters:
