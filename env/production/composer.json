@@ -5,15 +5,20 @@
 	"repositories": [
 		{
 			"type": "composer",
-			"url": "https://p4-composer-registry.greenpeace.org/"
+			"url": "https://wpackagist.org"
 		},
 		{
 			"type": "composer",
-			"url": "https://wpackagist.org"
+			"url": "https://packagist.org"
 		}
 	],
 
 	"require": {
 		"greenpeace/planet4-child-theme" : "0.2.*"
+	},
+
+	"scripts": {
+		"copy:searchconsole": "rsync -ar app/planet4-gpi/production/googlec6afea9a5a6b7e1c.html public/googlec6afea9a5a6b7e1c.html",
+		"site:custom" : ["@copy:searchconsole"]
 	}
 }
