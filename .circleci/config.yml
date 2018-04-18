@@ -4,7 +4,7 @@ defaults: &defaults
     GKE_CLUSTER_NAME: p4-development
     BUILD_FLAGS: -r
   docker:
-    - image: gcr.io/planet-4-151612/circleci-base:0.3.7
+    - image: gcr.io/planet-4-151612/circleci-base:v0.4.0
   working_directory:  /home/circleci/app
 
 version: 2
@@ -57,10 +57,9 @@ jobs:
             make test
 
       - run:
-          name: Dependencies
+          name: Configure
           command: |
             make configure
-
 
       - run:
           name: Build develop containers
