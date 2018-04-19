@@ -1,4 +1,5 @@
-docker/p4-gpi-app/www
+app/source/
+openresty/source/
 docker/p4-gpi-openresty/www
 secrets/
-www/
+source/

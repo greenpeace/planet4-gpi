@@ -1,83 +1,65 @@
 SHELL := /bin/bash
 
+BUILD_NAMESPACE 	?= gcr.io
 GOOGLE_PROJECT_ID ?= planet-4-151612
-ENVIRONMENT				?= development
-BUILD_PATH 				?= env/$(ENVIRONMENT)
-# GS_BUCKET 				:= p4-src-public
-# GS_PATH 					?= production
+CONTAINER_PREFIX  ?= planet4-gpi
 
-BUILD_NAMESPACE ?= gcr.io
+GIT_SOURCE 				?= https://github.com/greenpeace/planet4-base
 
+# The branch to checkout of github.com/greenpeace/planet4-base
+GIT_BRANCH 				?= $(shell git rev-parse --abbrev-ref HEAD)
 
-GIT_BRANCH ?= $(shell git rev-parse --abbrev-ref HEAD)
-
-# Build tag
+# Tag for built containers
 # If not set, defaults to git tag pointing to current commit
-BUILD_TAG ?= $(shell git tag -l --points-at HEAD)
+BUILD_TAG 				?= $(shell git tag -l --points-at HEAD)
+
+GS_BUCKET 				:= $(CONTAINER_PREFIX)-source
+GS_PATH 					?= $(GIT_BRANCH)
 
 # If the current commit does not have a tag, or the variable is empty
-# Defaults to the current git branch name
 ifeq ($(strip $(BUILD_TAG)),)
 BUILD_TAG := $(GIT_BRANCH)
 endif
 
-# Compose command
-COMPOSER_EXEC ?= composer --profile -vv
-
 ################################################################################
 
-.PHONY: clean test configure build-dev bake src build pull
+.PHONY: clean test bake build bugit iild-app build-openresty save pull
 
-all: clean test configure build-dev bake build pull
+all: clean test bake build save
 
 test:
-	  @echo "TAG: $(BUILD_TAG)"
-	  @echo "TAG: $(GIT_BRANCH)"
+	  @echo "BUILD_TAG: $(BUILD_TAG)"
+	  @echo "GIT_BRANCH: $(GIT_BRANCH)"
 
 clean:
 	  rm -fr planet4-base
-		rm -fr www
+		rm -fr source
+		docker-compose down -v --remove-orphans
+		docker rmi p4-build --force
 
-configure: ### Update git submodules
-		git submodule update --init --remote
-		# Checkout matching branch in planet4-base
-		pushd planet4-base && \
-		git checkout $(GIT_BRANCH) && \
-		git reset --hard && \
-		git pull && \
-		cp ../env/development/p4-gpi-app-dev/composer.json composer-local.json && \
-		$(COMPOSER_EXEC) config extra.merge-plugin.require "composer-local.json" && \
-		$(COMPOSER_EXEC) update && \
-		$(COMPOSER_EXEC) install --no-interaction && \
-  	$(COMPOSER_EXEC) clear-cache && \
+bake:
+		GIT_SOURCE=$(GIT_SOURCE) GIT_REF=$(GIT_BRANCH) ./bake.sh
+
+build: build-app build-openresty
+build-app:
+		pushd app && \
+		docker build -t $(BUILD_NAMESPACE)/$(GOOGLE_PROJECT_ID)/$(CONTAINER_PREFIX)-app:${BUILD_TAG} . && \
 		popd
 
-build-dev:
-		gcloud config set project $(GOOGLE_PROJECT_ID)
-		rsync -a --delete planet4-base/ env/development/p4-gpi-app-dev/source
-		mkdir -p env/development/p4-gpi-app-dev/source/public
-		pushd env/development && \
-		gcloud container builds submit . \
-			--config cloudbuild.yaml && \
+build-openresty:
+		pushd openresty && \
+		docker build -t $(BUILD_NAMESPACE)/$(GOOGLE_PROJECT_ID)/$(CONTAINER_PREFIX)-openresty:${BUILD_TAG} . && \
 		popd
 
-bake: src
-src:
-		bin/bake.sh gcr.io/$(GOOGLE_PROJECT_ID)/p4-gpi-app-dev:develop www
-		rsync -a --delete www/public/ env/production/p4-gpi-app/www
-		rsync -a --delete www/public/ env/production/p4-gpi-openresty/www
+push:
+		gcloud auth configure-docker
+		docker push $(BUILD_NAMESPACE)/$(GOOGLE_PROJECT_ID)/$(CONTAINER_PREFIX)-openresty:${BUILD_TAG}
+		docker push $(BUILD_NAMESPACE)/$(GOOGLE_PROJECT_ID)/$(CONTAINER_PREFIX)-app:${BUILD_TAG}
 
-build:
-		gcloud config set project $(GOOGLE_PROJECT_ID)
-		pushd env/production && \
-		gcloud container builds submit . \
-		  --substitutions=_BUILD_NAMESPACE=$(BUILD_NAMESPACE),_BUILD_TAG=$(BUILD_TAG),_GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID) \
-		  --config cloudbuild.yaml && \
-		popd
+save:
+		gsutil -m rsync -d -r source gs://$(GS_BUCKET)/$(GS_PATH)
 
 pull:
-	  docker pull gcr.io/$(GOOGLE_PROJECT_ID)/p4-gpi-app-dev:${BUILD_TAG} &
-	  docker pull gcr.io/$(GOOGLE_PROJECT_ID)/p4-gpi-openresty-dev:${BUILD_TAG} &
-	  docker pull gcr.io/$(GOOGLE_PROJECT_ID)/p4-gpi-app:${BUILD_TAG} &
-	  docker pull gcr.io/$(GOOGLE_PROJECT_ID)/p4-gpi-openresty:${BUILD_TAG} &
+  	docker pull $(BUILD_NAMESPACE)/$(GOOGLE_PROJECT_ID)/$(CONTAINER_PREFIX)-app:${BUILD_TAG} &
+	  docker pull $(BUILD_NAMESPACE)/$(GOOGLE_PROJECT_ID)/$(CONTAINER_PREFIX)-openresty:${BUILD_TAG} &
 		wait
