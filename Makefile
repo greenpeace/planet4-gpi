@@ -57,7 +57,7 @@ bake:
 		GIT_SOURCE=$(GIT_SOURCE) \
 		GIT_REF=$(GIT_BRANCH) \
 		GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID) \
-		./bake.sh
+		./bake.sh | tee source/bake.log
 
 build: build-app build-openresty
 build-app:
