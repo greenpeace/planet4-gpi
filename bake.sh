@@ -12,30 +12,8 @@ generated files for use elsewhere.
 
 # ----------------------------------------------------------------------------
 
-# Find real file path of current script
-# https://stackoverflow.com/questions/59895/getting-the-source-directory-of-a-bash-script-from-within
-
-source="${BASH_SOURCE[0]}"
-while [[ -h "$source" ]]
-do # resolve $source until the file is no longer a symlink
-  dir="$( cd -P "$( dirname "$source" )" && pwd )"
-  source="$(readlink "$source")"
-  [[ $source != /* ]] && source="$dir/$source" # if $source was a relative symlink, we need to resolve it relative to the path where the symlink file was located
-done
-current_path="$( cd -P "$( dirname "$source" )" && pwd )"
-
-# ----------------------------------------------------------------------------
-
 output_dir="source"
 mkdir -p "$output_dir"
-
-container=$(basename "$(realpath "${current_path}/")")
-app_container=${container//[^[:alnum:]_]/}_app_1
-php_container=${container//[^[:alnum:]_]/}_php-fpm_1
-
-echo "Image:  $container"
-echo "Output: $output_dir"
-echo ""
 
 export APP_GID=${APP_GID:-1000}
 export APP_GROUP=${APP_GROUP:-app}
@@ -51,61 +29,61 @@ envvars=(
   '${APP_GROUP}' \
   '${APP_UID}' \
   '${APP_USER}' \
+  '${APP_VERSION}' \
   '${GIT_BRANCH}' \
   '${GIT_SOURCE}' \
+  '${GOOGLE_PROJECT_ID}' \
+  '${MAINTAINER}' \
   '${SOURCE_PATH}' \
 )
-
 envvars_string="$(printf "%s:" "${envvars[@]}")"
-envvars_string="${envvars_string%:}"
 
-build_dir="${current_path}/build"
-envsubst "${envvars_string}" < "${build_dir}/Dockerfile.in" > "${build_dir}/Dockerfile"
+for i in build app openresty
+do
+  build_dir=$i
+  envsubst "${envvars_string%:}" < "${build_dir}/Dockerfile.in" > "${build_dir}/Dockerfile"
+done
 
 # ----------------------------------------------------------------------------
 
-# copy source repository to build dir
-# rsync -av --delete planet4-base/ build/source
-
-docker-compose down -v
+docker-compose -p build down -v --remove-orphans
 
 # ----------------------------------------------------------------------------
 
 # Build the container and start
 echo "Building containers..."
-docker-compose build
+docker-compose -p build build
 echo ""
 
 echo "Starting containers..."
-docker-compose up -d
+docker-compose -p build up -d
 echo ""
-
-# 10 * 120 = 20 minutes
-interval=5
-loop=240
-
-# Number of consecutive successes to qualify as 'up'
-success=0
-threshold=3
 
 # This will take a while
 echo "Sleeping 15 seconds..."
 sleep 15
 
+# 5 seconds * 240 == 20+ minutes
+interval=5
+loop=240
+
+# Number of consecutive successes to qualify as 'up'
+threshold=3
+success=0
+
+
 until [[ $success -ge $threshold ]]
 do
   # Curl to container and expect status code 200
-  set +ex
-  echo "Checking $container response"
-  docker run --network "container:$app_container" --rm appropriate/curl -s -k "http://localhost:80" | grep "greenpeace"
+  set +e
+  docker run --network "container:build_app_1" --rm appropriate/curl -s -k "http://localhost:80" | grep -q "greenpeace"
 
   if [[ $? -eq 0 ]]
   then
     success=$((success+1))
-    echo "Success: $success"
+    echo "Success: $success/$threshold"
   else
     success=0
-    echo "Fail"
   fi
   set -e
 
@@ -117,7 +95,7 @@ do
     exit 1
   fi
 
-  sleep $interval
+  [[ $success -ge $threshold ]] || sleep $interval
 
 done
 
@@ -125,28 +103,18 @@ docker-compose logs php-fpm
 echo ""
 
 echo "Copying built source directory..."
-docker cp "$app_container:/app/source/public/" "$output_dir"
+docker cp "build_app_1:/app/source/public/" "$output_dir"
 echo ""
 
 echo "Bringing down containers..."
-# docker-compose down -v &
+docker-compose down -v &
 echo ""
 
-echo "Files available at: $output_dir/public"
+# FIXME volume: nocopy not working in the docker-compse.yml file
+rm -f "$output_dir/public/index.html"
 
-# FIXME store these files in a bucket!
-# gsutil cp $output_dir gs://${GS_BUCKET}/planet4-gpi
+echo "Output: $output_dir/public"
 
-ls "$output_dir/public"
-
-rm "$output_dir/public/index.html"
-
-mkdir -p app/source/public
-mkdir -p openresty/source/public
-
-rsync -a --delete "$output_dir/public/" app/source/public
-rsync -a --delete "$output_dir/public/" openresty/source/public
-
-echo "Waiting for docker-compose down to finish..."
 wait
-echo ""
+
+echo "Done"

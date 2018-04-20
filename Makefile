@@ -1,52 +1,71 @@
 SHELL := /bin/bash
 
+MAINTAINER 				?= Raymond Walker <raymond.walker@greenpeace.org>
+
+APP_VERSION				?= v0.6.0
 BUILD_NAMESPACE 	?= gcr.io
 GOOGLE_PROJECT_ID ?= planet-4-151612
-CONTAINER_PREFIX  ?= planet4-gpi
 
 GIT_SOURCE 				?= https://github.com/greenpeace/planet4-base
 
-# The branch to checkout of github.com/greenpeace/planet4-base
+# The branch to checkout of GIT_SOURCE
+# Use local branch name if not set
 GIT_BRANCH 				?= $(shell git rev-parse --abbrev-ref HEAD)
 
-# Tag for built containers
-# If not set, defaults to git tag pointing to current commit
-BUILD_TAG 				?= $(shell git tag -l --points-at HEAD)
+# Use current folder name as prefix for built containers,
+# eg planet4-gpi-app planet4-gpi-openresty
+CONTAINER_PREFIX  ?= $(shell basename $(shell pwd))
 
-GS_BUCKET 				:= $(CONTAINER_PREFIX)-source
-GS_PATH 					?= $(GIT_BRANCH)
+# Tag for built containers
+# Use local tag if not set
+BUILD_TAG 				?= $(shell git tag -l --points-at HEAD)
 
 # If the current commit does not have a tag, or the variable is empty
 ifeq ($(strip $(BUILD_TAG)),)
+# Default to git tag on current commit
 BUILD_TAG := $(GIT_BRANCH)
 endif
 
+# GCS bucket to store built source
+GS_BUCKET 				:= $(CONTAINER_PREFIX)-source
+GS_PATH 					?= $(BUILD_TAG)
+
 ################################################################################
 
-.PHONY: clean test bake build bugit iild-app build-openresty save pull
+.PHONY: clean test bake build build-app build-openresty save pull push
 
-all: clean test bake build save
+all: clean test bake build save push
 
 test:
+		@echo "Building $(CONTAINER_PREFIX) containers"
 	  @echo "BUILD_TAG: $(BUILD_TAG)"
 	  @echo "GIT_BRANCH: $(GIT_BRANCH)"
 
 clean:
-	  rm -fr planet4-base
 		rm -fr source
-		docker-compose down -v --remove-orphans
+		docker-compose -p build down -v
 		docker rmi p4-build --force
 
 bake:
-		GIT_SOURCE=$(GIT_SOURCE) GIT_REF=$(GIT_BRANCH) ./bake.sh
+		APP_VERSION=$(APP_VERSION) \
+		GIT_REF=$(GIT_BRANCH) \
+		MAINTAINER="$(MAINTAINER)" \
+		GIT_SOURCE=$(GIT_SOURCE) \
+		GIT_REF=$(GIT_BRANCH) \
+		GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID) \
+		./bake.sh
 
 build: build-app build-openresty
 build-app:
+		mkdir -p app/source/public
+		rsync -av --delete source/public/ app/source/public
 		pushd app && \
 		docker build -t $(BUILD_NAMESPACE)/$(GOOGLE_PROJECT_ID)/$(CONTAINER_PREFIX)-app:${BUILD_TAG} . && \
 		popd
 
 build-openresty:
+		mkdir -p openresty/source/public
+		rsync -av --delete source/public/ openresty/source/public
 		pushd openresty && \
 		docker build -t $(BUILD_NAMESPACE)/$(GOOGLE_PROJECT_ID)/$(CONTAINER_PREFIX)-openresty:${BUILD_TAG} . && \
 		popd
