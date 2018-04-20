@@ -29,9 +29,9 @@ envvars=(
   '${APP_GROUP}' \
   '${APP_UID}' \
   '${APP_USER}' \
-  '${APP_VERSION}' \
   '${GIT_REF}' \
   '${GIT_SOURCE}' \
+  '${INFRA_VERSION}' \
   '${GOOGLE_PROJECT_ID}' \
   '${MAINTAINER}' \
   '${SOURCE_PATH}' \

@@ -2,7 +2,7 @@ SHELL := /bin/bash
 
 MAINTAINER 				?= Raymond Walker <raymond.walker@greenpeace.org>
 
-APP_VERSION				?= v0.6.0
+INFRA_VERSION			?= v0.6.0
 BUILD_NAMESPACE 	?= gcr.io
 GOOGLE_PROJECT_ID ?= planet-4-151612
 
@@ -53,8 +53,8 @@ clean:
 
 bake:
 		mkdir -p source/public
-		APP_VERSION=$(APP_VERSION) \
 		GIT_REF=$(GIT_REF) \
+		INFRA_VERSION=$(INFRA_VERSION) \
 		MAINTAINER="$(MAINTAINER)" \
 		GIT_SOURCE=$(GIT_SOURCE) \
 		GIT_REF=$(GIT_REF) \
