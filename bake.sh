@@ -108,8 +108,7 @@ echo ""
 # FIXME volume: nocopy not working in the docker-compse.yml file
 rm -f "$output_dir/public/index.html"
 
-echo "Output: $output_dir/public"
-
 wait
 
 echo "Done"
+echo "Output: $output_dir/public"
