@@ -37,9 +37,8 @@ endif
 
 ################################################################################
 
-.PHONY: clean test bake build build-app build-openresty save pull push
+.PHONY: clean test bake build build-app build-openresty pull push save
 
-all: clean test bake build save push
 
 test:
 		@echo "Building $(CONTAINER_PREFIX) containers"
