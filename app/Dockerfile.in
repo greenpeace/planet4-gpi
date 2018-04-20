@@ -6,3 +6,5 @@ ENV APP_ENV="production" \
     WP_TITLE="Greenpeace International"
 
 COPY . /app/
+
+RUN chown -R ${APP_USER}:${APP_GROUP} /app/source
