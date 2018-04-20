@@ -8,7 +8,7 @@ GOOGLE_PROJECT_ID ?= planet-4-151612
 
 GIT_SOURCE 				?= https://github.com/greenpeace/planet4-base
 
-# The branch to checkout of GIT_SOURCE
+# The branch to checkout of GIT_SOURCE, eg:
 # Use local branch name if not set
 GIT_BRANCH 				?= $(shell git rev-parse --abbrev-ref HEAD)
 
@@ -39,6 +39,7 @@ endif
 
 .PHONY: clean test bake build build-app build-openresty pull push save
 
+all: clean test bake build push save
 
 test:
 		@echo "Building $(CONTAINER_PREFIX) containers"
@@ -48,14 +49,15 @@ test:
 clean:
 		rm -fr source
 		docker-compose -p build down -v
-		docker rmi p4-build --force
+		# docker rmi p4-build --force
 
 bake:
+		mkdir -p source/public
 		APP_VERSION=$(APP_VERSION) \
 		GIT_REF=$(GIT_BRANCH) \
 		MAINTAINER="$(MAINTAINER)" \
 		GIT_SOURCE=$(GIT_SOURCE) \
-		GIT_REF=$(GIT_BRANCH) \
+		GIT_BRANCH=$(GIT_BRANCH) \
 		GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID) \
 		./bake.sh | tee source/bake.log
 
