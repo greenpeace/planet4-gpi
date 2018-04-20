@@ -30,6 +30,11 @@ endif
 GS_BUCKET 				:= $(CONTAINER_PREFIX)-source
 GS_PATH 					?= $(BUILD_TAG)
 
+# If for any reason GS_PATH is empty, we don't want to overwrite other namespaces
+ifeq ($(strip $(GS_PATH)),)
+GS_PATH := testing
+endif
+
 ################################################################################
 
 .PHONY: clean test bake build build-app build-openresty save pull push
