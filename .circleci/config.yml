@@ -1,19 +1,33 @@
 defaults: &defaults
   environment:
-    GOOGLE_PROJECT_ID: planet-4-151612
-    GKE_CLUSTER_NAME: p4-development
+    APP_HOSTNAME: k8s.p4.greenpeace.org
+    APP_PATH: international
+    APP_VERSION: latest
     BUILD_FLAGS: -r
+    GKE_CLUSTER_NAME: p4-development
+    GOOGLE_PROJECT_ID: planet-4-151612
   docker:
-    - image: gcr.io/planet-4-151612/circleci-base:v0.4.0
-  working_directory:  /home/circleci/app
+    - image: gcr.io/planet-4-151612/circleci-base:v0.4.2
+  working_directory:  ~/app
 
 version: 2
 
 jobs:
-  build:
+  checkout_code:
     <<: *defaults
     steps:
       - checkout
+      - save_cache:
+          key: v1-repo-{{ .Environment.CIRCLE_SHA1 }}
+          paths:
+            - ~/app
+
+  build:
+    <<: *defaults
+    steps:
+      - restore_cache:
+          keys:
+            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
 
       - setup_remote_docker
 
@@ -57,24 +71,19 @@ jobs:
             make test
 
       - run:
-          name: Configure
-          command: |
-            make configure
-
-      - run:
-          name: Build develop containers
-          command: |
-            make build-dev
-
-      - run:
           name: Bake source files
           command: |
-            make bake
+            BUILD_TAG=$CIRCLE_BUILD_NUM GIT_REF=$CIRCLE_BRANCH make bake
 
       - run:
           name: Build production containers
           command: |
             make build
+
+      - run:
+          name: Push
+          command: |
+            make push
 
       - persist_to_workspace:
           root: /tmp/workspace
@@ -95,13 +104,27 @@ jobs:
   deploy-develop:
     <<: *defaults
     environment:
+      # WP_AUTH_KEY=
+      # WP_AUTH_SALT=
+      # WP_LOGGED_IN_KEY=
+      # WP_LOGGED_IN_SALT=
+      # WP_NONCE_KEY=
+      # WP_NONCE_SALT=
+      # WP_SECURE_AUTH_KEY=
+      # WP_SECURE_AUTH_SALT=
+      # WP_DB_PASSWORD=
+      # WP_STATELESS_KEY=
       NAMESPACE=develop
-      HELM_HOSTNAME=k8s.p4.greenpeace.org
-      HELM_HOSTPATH=international
+      NEWRELIC_APPNAME=Planet 4 GPI K8s Development
+      OPENRESTY_IMAGE_REPOSITORY=gcr.io/${GOOGLE_PROJECT_ID}/${CONTAINER_PREFIX}-openresty
+      PHP_IMAGE_REPOSITORY=gcr.io/${GOOGLE_PROJECT_ID}/${CONTAINER_PREFIX}-app
+      WP_DB_NAME=planet4-gpi_wordpress
+      WP_DB_USERNAME=planet4-gpi
       WP_STATELESS_BUCKET=p4-develop-content-k8s
-      NEWRELIC_APPNAME=Planet 4 GPI K8s
     steps:
-      - checkout
+      - restore_cache:
+          keys:
+            - v1-repo-{{ .Environment.CIRCLE_SHA1 }}
 
       - setup_remote_docker
 
@@ -134,13 +157,14 @@ jobs:
               --set dbPassword="${WP_DB_PASSWORD}" \
               --set dbUsername="${WP_DB_USERNAME}" \
               --set exim.image.pullPolicy="always" \
+              --set exim.image.pullPolicy="always" \
               --set exim.image.tag="develop" \
-              --set hostname="${HELM_HOSTNAME}" \
+              --set hostname="${APP_HOSTNAME}" \
               --set newrelic.appname="${NEWRELIC_APPNAME}" \
-              --set openresty.image.pullPolicy="always" \
-              --set openresty.image.tag="develop" \
-              --set php.image.pullPolicy="always" \
-              --set php.image.tag="develop" \
+              --set openresty.image.repository="${OPENRESTY_IMAGE_REPOSITORY}" \
+              --set openresty.image.tag="${APP_VERSION}" \
+              --set php.image.repository="${PHP_IMAGE_REPOSITORY}" \
+              --set php.image.tag="${APP_VERSION}" \
               --set sqlproxy.serviceAccountKey="${SQLPROXY_KEY}" \
               --set wp.authKey="${WP_AUTH_KEY}" \
               --set wp.authSalt="${WP_AUTH_SALT}" \
@@ -150,7 +174,7 @@ jobs:
               --set wp.nonceSalt="${WP_NONCE_SALT}" \
               --set wp.secureAuthKey="${WP_SECURE_AUTH_KEY}" \
               --set wp.secureAuthSalt="${WP_SECURE_AUTH_SALT}" \
-              --set wp.siteHome="https://${HELM_HOSTNAME}/${HELM_HOSTPATH}" \
+              --set wp.siteHome="https://${APP_HOSTNAME}/${APP_HOSTPATH}" \
               --set wp.stateless.bucket="${WP_STATELESS_BUCKET}" \
               --set wp.stateless.serviceAccountKey="${WP_STATELESS_KEY}" \
               p4-helm-charts/wordpress
@@ -171,7 +195,10 @@ workflows:
   version: 2
   build-test-and-deploy:
     jobs:
+      - checkout_code
       - build:
+          requires:
+            - checkout_code
           context: org-global
           filters:
             tags:
@@ -182,8 +209,7 @@ workflows:
       #     filters:
       #       tags:
       #         only: /.*/
-      - deploy-develop:
-          context: org-global
+      - hold-develop:
           requires:
             - build
           filters:
@@ -191,10 +217,27 @@ workflows:
               only: develop
             tags:
               only: /.*/
+      - deploy-develop:
+          context: org-global
+          requires:
+            - hold-develop
+          filters:
+            branches:
+              only: develop
+            tags:
+              only: /.*/
+      - hold-production:
+          requires:
+            - build
+          filters:
+            branches:
+              only: master
+            tags:
+              only: /v.*/
       - deploy-production:
           context: org-global
           requires:
-            - build
+            - hold-production
           filters:
             branches:
               only: master
