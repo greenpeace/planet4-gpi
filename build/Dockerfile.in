@@ -9,7 +9,7 @@ ENV WP_SET_OPTIONS_ON_BOOT=false
 RUN rm -fr "${SOURCE_PATH}" && \
     git clone "${GIT_SOURCE}" "${SOURCE_PATH}" && \
     cd "${SOURCE_PATH}" && \
-    git checkout "${GIT_BRANCH}"
+    git checkout "${GIT_REF}"
 
 COPY . /app/
 

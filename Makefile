@@ -10,7 +10,7 @@ GIT_SOURCE 				?= https://github.com/greenpeace/planet4-base
 
 # The branch to checkout of GIT_SOURCE, eg:
 # Use local branch name if not set
-GIT_BRANCH 				?= $(shell git rev-parse --abbrev-ref HEAD)
+GIT_REF 					?= $(shell git rev-parse --abbrev-ref HEAD)
 
 # Use current folder name as prefix for built containers,
 # eg planet4-gpi-app planet4-gpi-openresty
@@ -23,7 +23,7 @@ BUILD_TAG 				?= $(shell git tag -l --points-at HEAD)
 # If the current commit does not have a tag, or the variable is empty
 ifeq ($(strip $(BUILD_TAG)),)
 # Default to git tag on current commit
-BUILD_TAG := $(GIT_BRANCH)
+BUILD_TAG := $(GIT_REF)
 endif
 
 # GCS bucket to store built source
@@ -44,7 +44,7 @@ all: clean test bake build push save
 test:
 		@echo "Building $(CONTAINER_PREFIX) containers"
 	  @echo "BUILD_TAG: $(BUILD_TAG)"
-	  @echo "GIT_BRANCH: $(GIT_BRANCH)"
+	  @echo "GIT_REF: $(GIT_REF)"
 
 clean:
 		rm -fr source
@@ -54,10 +54,10 @@ clean:
 bake:
 		mkdir -p source/public
 		APP_VERSION=$(APP_VERSION) \
-		GIT_REF=$(GIT_BRANCH) \
+		GIT_REF=$(GIT_REF) \
 		MAINTAINER="$(MAINTAINER)" \
 		GIT_SOURCE=$(GIT_SOURCE) \
-		GIT_BRANCH=$(GIT_BRANCH) \
+		GIT_REF=$(GIT_REF) \
 		GOOGLE_PROJECT_ID=$(GOOGLE_PROJECT_ID) \
 		./bake.sh | tee source/bake.log
 

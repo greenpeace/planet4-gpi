@@ -30,7 +30,7 @@ envvars=(
   '${APP_UID}' \
   '${APP_USER}' \
   '${APP_VERSION}' \
-  '${GIT_BRANCH}' \
+  '${GIT_REF}' \
   '${GIT_SOURCE}' \
   '${GOOGLE_PROJECT_ID}' \
   '${MAINTAINER}' \

@@ -24,7 +24,7 @@ services:
     environment:
       - APP_ENV=production
       - APP_HOSTNAME=${APP_HOSTNAME:-build.planet4.local}
-      - GIT_REF=${GIT_BRANCH:-develop}
+      - GIT_REF=${GIT_REF:-develop}
       - GIT_SOURCE=${GIT_SOURCE:-https://github.com/greenpeace/planet4-base}
       - MYSQL_DATABASE=${MYSQL_DATABASE:-p4_test}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-CeciNestUnePassword}
