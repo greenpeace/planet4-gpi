@@ -59,18 +59,13 @@ echo "Starting containers..."
 docker-compose -p build up -d
 echo ""
 
-# This will take a while
-echo "Sleeping 15 seconds..."
-sleep 15
-
-# 5 seconds * 240 == 20+ minutes
-interval=5
-loop=240
+# 2 seconds * 150 == 5+ minutes
+interval=2
+loop=150
 
 # Number of consecutive successes to qualify as 'up'
 threshold=3
 success=0
-
 
 until [[ $success -ge $threshold ]]
 do
