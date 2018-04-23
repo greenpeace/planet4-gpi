@@ -20,8 +20,4 @@
 		"wpackagist-plugin/wordfence": "^7.1"
 	},
 
-	"scripts": {
-		"copy:searchconsole": "rsync -ar googlec6afea9a5a6b7e1c.html public/googlec6afea9a5a6b7e1c.html",
-		"site:custom" : ["@copy:searchconsole"]
-	}
 }

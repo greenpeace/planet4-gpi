@@ -1,8 +1,0 @@
-FROM gcr.io/${GOOGLE_PROJECT_ID}/openresty:${APP_VERSION}
-
-LABEL authors="Raymond Walker <raymond.walker@greenpeace.org>"
-
-ENV APP_ENV="production" \
-    APP_HOSTNAME="k8s.p4.greenpeace.org"
-
-COPY . /app/

@@ -1,4 +1,0 @@
-docker/p4-gpi-openresty/www
-secrets/
-source/
-!build/source

@@ -1,1 +1,1 @@
-# Planet4 GPI Composer and Docker builds
+# Planet4 GPI Composer builds
