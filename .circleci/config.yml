@@ -5,7 +5,7 @@ defaults: &defaults
     CONTAINER_PREFIX: planet4-gpi
     BUILD_FLAGS: -r
   docker:
-    - image: gcr.io/planet-4-151612/p4-builder:develop
+    - image: gcr.io/planet-4-151612/p4-builder:v0.7.1
   working_directory:  /home/circleci/
 
 version: 2
