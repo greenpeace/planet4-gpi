@@ -3,7 +3,7 @@ defaults: &defaults
     GOOGLE_PROJECT_ID: planet-4-151612
     INFRA_VERSION: v0.7.2
     CONTAINER_PREFIX: planet4-gpi
-    BUILD_FLAGS: -r
+    APP_HOSTPATH: international
   docker:
     - image: gcr.io/planet-4-151612/p4-builder:v0.7.2
   working_directory:  /home/circleci/
@@ -17,15 +17,22 @@ jobs:
       - setup_remote_docker
 
       - run:
-          name: Configure gcloud
+          name: Configure
           command: |
             ${HOME}/scripts/activate-gcloud-account.sh
+            mkdir -p /tmp/workspace/var
+            echo "${CIRCLE_BUILD_NUM}" > /tmp/workspace/var/circle-build-num
 
       - run:
-          name: Build application
+          name: Build
           working_directory: /home/circleci
           command: |
             make
+
+      - persist_to_workspace:
+          root: /tmp/workspace
+          paths:
+            - var
 
   # test:
   #   <<: *defaults
@@ -46,34 +53,40 @@ jobs:
       # - setup_remote_docker
       #
 
-
-      # - run:
-      #     name: Configure gcloud
-      #     command: |
-      #       ${HOME}/scripts/activate-gcloud-account.sh
+      - attach_workspace:
+          at: /tmp/workspace
 
       - run:
-          name: Build production
+          name: Configure
           command: |
-            echo "@todo Update dependent repositories with new base master release"
-            echo " - planet4-gpi"
-            echo " - planet4-gp-greece"
-            echo " - p4-handbook"
-            echo "Commit changes to new tag"
+            ${HOME}/scripts/activate-gcloud-account.sh
+
+      - run:
+          name: Deploy new containers
+          environment:
+            NEWRELIC_APPNAME: P4 Base Development
+          command: |
+            if [[ -z "${CIRCLE_TAG}" ]]
+            then
+              export BUILD_TAG=build-$(cat /tmp/workspace/var/circle-build-num)
+            else
+              export BUILD_TAG=${CIRCLE_TAG}
+            fi
+            make deploy
+
 
 workflows:
   version: 2
-  build-test-and-deploy:
+  branch:
     jobs:
       - build:
           context: org-global
           filters:
-            branches:
-              only: /.*/
             tags:
-              only: /.*/
+              ignore: /^v.*/
 
       - deploy-develop:
+          context: planet4-gpi-development
           requires:
             - build
           filters:
@@ -88,15 +101,32 @@ workflows:
       #         only: /.*/
       # Only run deploy job for tagged releases on master
 
+  tag:
+    jobs:
+      - build:
+          context: org-global
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
+
       - hold-production:
           type: approval
+          filters:
+            branches:
+              ignore: /.*/
+            tags:
+              only: /^v.*/
           requires:
             - build
 
       - deploy-production:
-          context: org-global
+          context: planet4-gpi-development
           requires:
             - hold-production
           filters:
+            branches:
+              ignore: /.*/
             tags:
-              only: /v.*/
+              only: /^v.*/
