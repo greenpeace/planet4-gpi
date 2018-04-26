@@ -1,23 +1,5 @@
 {
-	"name": "greenpeace/planet4-base-gpi",
-	"version": "0.2.1",
-
-	"repositories": [
-		{
-			"type": "composer",
-			"url": "https://wpackagist.org"
-		},
-		{
-			"type": "composer",
-			"url": "https://packagist.org"
-		}
-	],
-
 	"require": {
-		"greenpeace/planet4-child-theme" : "0.2.*",
-		"wpackagist-plugin/elasticpress": "^2.4",
-		"wpackagist-plugin/nginx-helper": "^1.9",
-		"wpackagist-plugin/wordfence": "^7.1"
-	},
-
+		"greenpeace/planet4-child-theme" : "0.2.*"
+	}
 }
