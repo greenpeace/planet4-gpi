@@ -1,11 +1,11 @@
 defaults: &defaults
   environment:
     GOOGLE_PROJECT_ID: planet-4-151612
-    INFRA_VERSION: v0.7.2
+    INFRA_VERSION: develop
     CONTAINER_PREFIX: planet4-gpi
     APP_HOSTPATH: international
   docker:
-    - image: gcr.io/planet-4-151612/p4-builder:v0.7.2
+    - image: gcr.io/planet-4-151612/p4-builder:develop
   working_directory:  /home/circleci/
 
 version: 2
